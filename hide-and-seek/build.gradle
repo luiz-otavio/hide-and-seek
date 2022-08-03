@@ -18,4 +18,10 @@ subprojects {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    afterEvaluate {
+        dependencies {
+            implementation('org.jetbrains:annotations:16.0.2')
+        }
+    }
 }
