@@ -1,0 +1,6 @@
+rootProject.name = 'hide-and-seek'
+
+include(
+    ':common',
+    ':bukkit'
+)
