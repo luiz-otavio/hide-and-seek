@@ -22,48 +22,38 @@
  * SOFTWARE.
  */
 
-package me.luizotavio.minecraft;
+package me.luizotavio.minecraft.listener;
 
-import me.luizotavio.minecraft.impl.DefaultVisibilityAPI;
-import me.luizotavio.minecraft.listener.VisibilityListener;
+import me.luizotavio.minecraft.VisibilityAPI;
 import org.bukkit.Bukkit;
-import org.bukkit.event.HandlerList;
-import org.bukkit.plugin.PluginManager;
-import org.bukkit.plugin.ServicePriority;
-import org.bukkit.plugin.ServicesManager;
-import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
+
+import java.util.Set;
 
 /**
  * @author Luiz Otávio de Farias Corrêa
  * @since 03/08/2022
  */
-public class VisibilityPlugin extends JavaPlugin {
+public class VisibilityListener implements Listener {
 
-    @Override
-    public void onEnable() {
-        ServicesManager servicesManager = Bukkit.getServicesManager();
+    private final VisibilityAPI visibilityAPI;
 
-        if (servicesManager.isProvidedFor(VisibilityAPI.class)) {
-            return;
-        }
-
-        servicesManager.register(VisibilityAPI.class, new DefaultVisibilityAPI(this), this, ServicePriority.Normal);
-
-        PluginManager pluginManager = Bukkit.getPluginManager();
-
-        pluginManager.registerEvents(new VisibilityListener(), this);
+    public VisibilityListener() {
+        this.visibilityAPI = Bukkit.getServicesManager()
+            .load(VisibilityAPI.class);
     }
 
-    @Override
-    public void onDisable() {
-        ServicesManager servicesManager = Bukkit.getServicesManager();
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
+        Player player = event.getPlayer();
 
-        if (!servicesManager.isProvidedFor(VisibilityAPI.class)) {
-            return;
-        }
+        Set<Player> visiblePlayers = visibilityAPI.getInvisiblePlayers(player);
 
-        servicesManager.unregister(VisibilityAPI.class, this);
-
-        HandlerList.unregisterAll(this);
+        visibilityAPI.hide(player, visiblePlayers);
     }
+
 }

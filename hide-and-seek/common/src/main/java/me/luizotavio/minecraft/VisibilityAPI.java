@@ -65,4 +65,11 @@ public interface VisibilityAPI {
      */
     boolean isVisible(@NotNull Player player, @NotNull Player target, boolean checkDistance);
 
+    /**
+     * Retrieve almost invisible players from the player.
+     * @param player The player.
+     * @return The visibility of all players to the player.
+     */
+    Set<Player> getInvisiblePlayers(@NotNull Player player);
+
 }

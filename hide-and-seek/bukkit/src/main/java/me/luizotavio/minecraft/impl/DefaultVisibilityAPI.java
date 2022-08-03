@@ -30,12 +30,16 @@ import me.luizotavio.minecraft.util.Parallelism;
 import me.luizotavio.minecraft.util.Ranges;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.server.level.EntityPlayer;
+import org.bukkit.Bukkit;
 import org.bukkit.craftbukkit.v1_17_R1.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -43,6 +47,8 @@ import java.util.stream.Collectors;
  * @since 03/08/2022
  */
 public class DefaultVisibilityAPI implements VisibilityAPI {
+
+    private static final Map<UUID, Set<UUID>> HIDE_VISIBILITY_MAP = new ConcurrentHashMap<>();
 
     private final Plugin plugin;
 
@@ -52,6 +58,16 @@ public class DefaultVisibilityAPI implements VisibilityAPI {
 
     @Override
     public void show(@NotNull Player player, Set<Player> targets) {
+        Set<UUID> uuids = HIDE_VISIBILITY_MAP.get(player.getUniqueId());
+
+        if (uuids != null) {
+            uuids.removeAll(
+                targets.stream()
+                    .map(Player::getUniqueId)
+                    .collect(Collectors.toSet())
+            );
+        }
+
         Packet<?>[] packets = VisibilityPacketFactory.createShowPacket(player, targets);
 
         Parallelism.callToSync(plugin, () -> {
@@ -65,6 +81,14 @@ public class DefaultVisibilityAPI implements VisibilityAPI {
 
     @Override
     public void hide(@NotNull Player player, Set<Player> targets) {
+        Set<UUID> uuids = HIDE_VISIBILITY_MAP.computeIfAbsent(player.getUniqueId(), k -> ConcurrentHashMap.newKeySet());
+
+        uuids.addAll(
+            targets.stream()
+                .map(Player::getUniqueId)
+                .collect(Collectors.toSet())
+        );
+
         // Make a copy stream because there is a hidden map in the CraftBukkit which excludes the target player
         Set<Player> visible = targets.parallelStream()
             .filter(player::canSee)
@@ -83,12 +107,22 @@ public class DefaultVisibilityAPI implements VisibilityAPI {
 
     @Override
     public boolean isVisible(@NotNull Player player, @NotNull Player target) {
-        return player.canSee(target);
+        Set<UUID> uuids = HIDE_VISIBILITY_MAP.get(player.getUniqueId());
+
+        return uuids == null || !uuids.contains(target.getUniqueId());
     }
 
     @Override
     public boolean isVisible(@NotNull Player player, @NotNull Player target, boolean checkDistance) {
-        // Should do a check if the player is in range of the target even it's in client side
-        return Ranges.isInRange(player.getLocation(), target.getLocation()) && target.canSee(player);
+        Set<UUID> uuids = HIDE_VISIBILITY_MAP.get(player.getUniqueId());
+
+        return uuids == null || (!uuids.contains(target.getUniqueId()) && (!checkDistance || Ranges.isInRange(player.getLocation(), target.getLocation())));
+    }
+
+    @Override
+    public Set<Player> getInvisiblePlayers(@NotNull Player player) {
+        return Bukkit.getOnlinePlayers().parallelStream()
+            .filter(p -> !isVisible(player, p))
+            .collect(Collectors.toUnmodifiableSet());
     }
 }
